@@ -7,7 +7,7 @@ import {
   History, Search, AlertTriangle,
   SkipForward, TrendingDown, Zap, Leaf, BarChart3,
   Clock, Trash2, ChevronDown, ChevronUp,
-  Database, Plus,
+  Database, Plus, Sparkles, Activity
 } from "lucide-react";
 import { historicalService, historicalSaveService, SavedAnalysis } from "@/lib/api/campaigns";
 import { zonesService } from "@/lib/api/zones";
@@ -193,110 +193,138 @@ function SavedAnalysisCard({
   expanded: boolean;
 }) {
   const s         = analysis.summary;
+  const isLoss    = s && s.total_loss_pct > 0;
   const dateRange = analysis.dates?.length >= 2
-    ? `${analysis.dates[0]} to ${analysis.dates[analysis.dates.length - 1]}`
+    ? `${analysis.dates[0]} → ${analysis.dates[analysis.dates.length - 1]}`
     : "—";
 
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-      className="rounded-2xl border border-white/10 bg-white/3 backdrop-blur-xl overflow-hidden"
+      className="rounded-2xl border border-white/10 bg-[#0a0a0c] overflow-hidden transition-all hover:border-white/20 relative group"
     >
-      <div className="p-5 flex items-start justify-between gap-4">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-3 mb-1 flex-wrap">
-            <h3 className="text-white font-bold text-base">{analysis.zoneName}</h3>
-            <span className="text-[10px] text-white/30 font-mono">
-              <Clock className="w-3 h-3 inline mr-1" />
+      <div className={`absolute left-0 top-0 bottom-0 w-1 ${isLoss ? 'bg-red-500' : 'bg-emerald-500'}`} />
+      
+      {/* ── Card Header (Clickable) ── */}
+      <div className="p-5 pl-6 flex flex-col md:flex-row md:items-center justify-between cursor-pointer gap-4" onClick={() => onExpand(analysis._id)}>
+        <div className="flex-1">
+          <div className="flex items-center gap-3 mb-1">
+            <h3 className="text-white font-bold text-lg">{analysis.zoneName}</h3>
+            <span className="text-[10px] text-white/40 font-mono tracking-wide px-2 py-0.5 rounded-full bg-white/5">
               {formatDistanceToNow(new Date(analysis.createdAt), { addSuffix: true })}
             </span>
           </div>
-          <p className="text-xs text-white/40 mb-3">{dateRange} · {analysis.scans?.length || 0} scans · {analysis.resolution}m resolution</p>
+          <p className="text-xs text-white/40 font-mono tracking-wide mb-3">
+            {dateRange} • {analysis.scans?.length || 0} scans • {analysis.resolution}m res
+          </p>
           <div className="flex flex-wrap gap-2">
-            {s?.total_loss_pct != null && (
-              <span className="text-xs px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-300">
-                <TrendingDown className="w-3 h-3 inline mr-1" />{s.total_loss_pct.toFixed(1)}% forest lost
-              </span>
-            )}
-            {s?.total_loss_ha != null && (
-              <span className="text-xs px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-300">
-                {s.total_loss_ha.toFixed(0)} ha
-              </span>
-            )}
             {s?.rate_per_year != null && s.rate_per_year > 0 && (
-              <span className="text-xs px-3 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-yellow-300">
-                {s.rate_per_year.toFixed(0)} ha/yr
+              <span className="text-[10px] px-2 py-0.5 rounded border border-yellow-500/20 bg-yellow-500/10 text-yellow-300/90">
+                {s.rate_per_year.toFixed(0)} ha/yr loss
               </span>
             )}
             {s?.scans_done != null && (
-              <span className="text-xs px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300">
+              <span className="text-[10px] px-2 py-0.5 rounded border border-blue-500/20 bg-blue-500/10 text-blue-300/90">
                 {s.scans_done} scans done
               </span>
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <button onClick={() => onDelete(analysis._id)}
-            className="p-2 rounded-lg bg-white/5 hover:bg-red-500/20 border border-white/10 hover:border-red-500/30 text-white/40 hover:text-red-300 transition-all">
-            <Trash2 className="w-3.5 h-3.5" />
+
+        {/* ── Key Metrics (Moved to Right) ── */}
+        <div className="flex gap-8 items-center md:pr-8">
+          <div className="text-right">
+            <p className="text-[9px] uppercase tracking-widest text-white/40 mb-1">Total Loss</p>
+            <p className={`text-base font-mono font-bold ${isLoss ? 'text-red-400' : 'text-emerald-400'}`}>
+              {s ? (isLoss ? '-' : '+') + Math.abs(s.total_loss_pct).toFixed(1) : 0}%
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-[9px] uppercase tracking-widest text-white/40 mb-1">Impact Area</p>
+            <p className="text-base font-mono text-white/80">{s?.total_loss_ha.toFixed(1) || 0} ha</p>
+          </div>
+        </div>
+
+        {/* ── Actions ── */}
+        <div className="flex items-center gap-2">
+          <button onClick={(e) => { e.stopPropagation(); onDelete(analysis._id); }}
+            className="p-2.5 rounded-xl bg-white/5 hover:bg-red-500/20 text-white/30 hover:text-red-400 transition-colors">
+            <Trash2 className="w-4 h-4" />
           </button>
-          <button onClick={() => onExpand(analysis._id)}
-            className="p-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white/60 hover:text-white transition-all">
-            {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-          </button>
+          <div className="p-2.5 rounded-xl bg-white/5 text-white/60 hover:bg-white/10 transition-colors">
+            {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </div>
         </div>
       </div>
 
-      {analysis.ai_verdict && (
-        <div className="px-5 pb-3">
-          <p className="text-xs text-emerald-300/70 italic line-clamp-2">&ldquo;{analysis.ai_verdict}&rdquo;</p>
+      {/* ── AI Verdict Insights (Subtle Container) ── */}
+      {analysis.ai_verdict && !expanded && (
+        <div className="px-6 pb-4">
+          <div className="flex items-start gap-3 p-3 rounded-xl bg-emerald-950/20 border border-emerald-500/10">
+            <Sparkles className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
+            <p className="text-xs text-emerald-100/70 italic line-clamp-2 leading-relaxed">
+              {analysis.ai_verdict}
+            </p>
+          </div>
         </div>
       )}
 
+      {/* ── Expanded Section ── */}
       <AnimatePresence>
         {expanded && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25 }} className="overflow-hidden">
-            <div className="border-t border-white/5 p-5 space-y-6">
+            exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25 }} className="overflow-hidden bg-black/20">
+            <div className="p-6 border-t border-white/5 space-y-6">
+              
+              {/* Full Verdict in Expanded View */}
+              {analysis.ai_verdict && (
+                <div className="flex items-start gap-3 p-4 rounded-xl bg-emerald-950/30 border border-emerald-500/20 mb-6">
+                  <Activity className="w-5 h-5 text-emerald-400 shrink-0" />
+                  <p className="text-sm text-emerald-100/90 italic leading-relaxed">
+                    {analysis.ai_verdict}
+                  </p>
+                </div>
+              )}
+
               {(analysis.scans || []).map((scan: any, i: number) => (
-                <div key={i} className="space-y-3">
+                <div key={i} className="space-y-4">
                   <div className="flex items-center gap-3 flex-wrap">
-                    <span className="text-sm font-mono text-white/80 font-semibold">{scan.date}</span>
-                    {i === 0 && <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/20 border border-blue-500/30 text-blue-300 font-semibold">BASELINE</span>}
+                    <span className="text-sm font-mono text-white/90 font-bold">{scan.date}</span>
+                    {i === 0 && <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 font-bold">Baseline</span>}
                     {scan.status === "skipped" && (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/10 text-white/40 flex items-center gap-1">
+                      <span className="text-[10px] px-2 py-0.5 rounded bg-white/10 text-white/40 flex items-center gap-1 font-bold">
                         <SkipForward className="w-3 h-3" /> Skipped
                       </span>
                     )}
                     {scan.status === "done" && scan.severity && scan.severity !== "none" && (
-                      <span className={`text-[10px] px-2 py-0.5 rounded border ${severityColor(scan.severity)}`}>{scan.severity.toUpperCase()}</span>
+                      <span className={`text-[10px] px-2 py-0.5 rounded border font-bold uppercase ${severityColor(scan.severity)}`}>{scan.severity}</span>
                     )}
                     {scan.status === "done" && (scan.cloud_pct || 0) > 0 && (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-sky-500/10 border border-sky-500/20 text-sky-400">
-                        ☁ {(scan.cloud_pct || 0).toFixed(0)}% cloud masked
+                      <span className="text-[10px] px-2 py-0.5 rounded bg-sky-500/10 border border-sky-500/20 text-sky-400 font-bold">
+                        ☁ {(scan.cloud_pct || 0).toFixed(0)}% cloud
                       </span>
                     )}
                   </div>
 
                   {scan.status === "done" && (
-                    <>
-                      <div className="grid grid-cols-4 gap-2">
+                    <div className="p-4 rounded-xl border border-white/5 bg-white/[0.02]">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                         {[
                           { label: "Forest",     val: scan.forest_pct,     color: "text-emerald-400" },
                           { label: "Vegetation", val: scan.vegetation_pct, color: "text-lime-400" },
                           { label: "Water",      val: scan.water_pct,      color: "text-cyan-400" },
-                          { label: "Bare Soil",  val: scan.bare_soil_pct,  color: "text-orange-400" },
+                          { label: "Soil",       val: scan.bare_soil_pct,  color: "text-orange-400" },
                         ].map(m => (
-                          <div key={m.label} className="bg-black/20 rounded-lg p-2 text-center">
-                            <p className="text-[9px] text-white/40 uppercase">{m.label}</p>
-                            <p className={`text-sm font-bold font-mono ${m.color}`}>{(m.val ?? 0).toFixed(1)}%</p>
+                          <div key={m.label} className="bg-black/40 rounded-lg p-3 text-center border border-white/5">
+                            <p className="text-[9px] text-white/40 uppercase tracking-widest">{m.label}</p>
+                            <p className={`text-base font-bold font-mono mt-1 ${m.color}`}>{(m.val ?? 0).toFixed(1)}%</p>
                           </div>
                         ))}
                       </div>
 
                       {(scan.threats || []).filter((t: string) => t && t !== "none").length > 0 && (
-                        <div className="flex flex-wrap gap-1">
+                        <div className="flex flex-wrap gap-2 mt-4">
                           {scan.threats.filter((t: string) => t && t !== "none").map((t: string) => (
-                            <span key={t} className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/15 border border-red-500/30 text-red-300">
+                            <span key={t} className="text-[10px] px-2 py-1 rounded bg-red-500/15 border border-red-500/30 text-red-300 font-bold uppercase tracking-wider">
                               {t.replace(/_/g, " ")}
                             </span>
                           ))}
@@ -304,10 +332,10 @@ function SavedAnalysisCard({
                       )}
 
                       {scan.description && (
-                        <p className="text-xs text-white/50 italic leading-relaxed">{scan.description}</p>
+                        <p className="text-xs text-white/50 italic leading-relaxed mt-4 bg-black/20 p-3 rounded-lg border border-white/5">{scan.description}</p>
                       )}
 
-                      {/* Analysis image — hidden behind toggle (satellite images often have clouds) */}
+                      {/* Analysis image — hidden behind toggle */}
                       {(() => {
                         const imgUrl = scan.heatmap_url || scan.image_url;
                         if (!imgUrl) return null;
@@ -315,15 +343,18 @@ function SavedAnalysisCard({
                       })()}
 
                       {i > 0 && scan.delta_from_first != null && (
-                        <p className={`text-xs font-semibold ${scan.delta_from_first > 0 ? "text-red-400" : "text-emerald-400"}`}>
-                          {scan.delta_from_first > 0
-                            ? `-${scan.delta_from_first.toFixed(1)}% from baseline · ${(scan.loss_hectares || 0).toFixed(0)} ha lost`
-                            : `+${Math.abs(scan.delta_from_first).toFixed(1)}% from baseline (recovery)`}
-                        </p>
+                        <div className="mt-4 flex items-center gap-2">
+                          <TrendingDown className={`w-4 h-4 ${scan.delta_from_first > 0 ? "text-red-400" : "text-emerald-400"}`} />
+                          <p className={`text-xs font-bold ${scan.delta_from_first > 0 ? "text-red-400" : "text-emerald-400"}`}>
+                            {scan.delta_from_first > 0
+                              ? `-${scan.delta_from_first.toFixed(1)}% from baseline · ${(scan.loss_hectares || 0).toFixed(0)} ha lost`
+                              : `+${Math.abs(scan.delta_from_first).toFixed(1)}% from baseline (recovery)`}
+                          </p>
+                        </div>
                       )}
-                    </>
+                    </div>
                   )}
-                  {i < (analysis.scans?.length ?? 0) - 1 && <div className="border-b border-white/5" />}
+                  {i < (analysis.scans?.length ?? 0) - 1 && <div className="h-px bg-white/5 my-4 w-full" />}
                 </div>
               ))}
             </div>

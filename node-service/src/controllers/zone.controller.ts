@@ -15,9 +15,9 @@ export const createZone = async (req: AuthRequest, res: Response): Promise<void>
 };
 
 // GET /api/zones
-export const getZones = async (_req: AuthRequest, res: Response): Promise<void> => {
+export const getZones = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const zones = await Zone.find({ isActive: true }).populate('createdBy', 'name email');
+    const zones = await Zone.find({ isActive: true, createdBy: req.user?.id }).populate('createdBy', 'name email');
     res.json({ success: true, count: zones.length, data: zones });
   } catch (err) {
     res.status(500).json({ success: false, error: err });

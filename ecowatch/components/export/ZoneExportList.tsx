@@ -26,7 +26,7 @@ export function ZoneExportList({ zones }: ZoneExportListProps) {
     });
   }, [zones]);
 
-  const handleDownload = async (zone: Zone, type: 'csv' | 'kml' | 'geojson') => {
+  const handleDownload = async (zone: Zone, type: 'csv' | 'historical-csv' | 'field-csv' | 'kml' | 'geojson') => {
     const actionId = `${type}-${zone._id}`;
     setLoadingAction(actionId);
     
@@ -48,7 +48,7 @@ export function ZoneExportList({ zones }: ZoneExportListProps) {
     setLoadingAction(null);
 
     if (success) {
-      toast.success(`${type.toUpperCase()} Exported Successfully!`, { id: toastId });
+      toast.success(`Exported Successfully!`, { id: toastId });
     } else {
       toast.error(`Failed to export ${type.toUpperCase()}`, { id: toastId });
     }

@@ -36,26 +36,26 @@ export const saveAnalysis = async (req: AuthRequest, res: Response): Promise<voi
     // Convert local file paths to accessible URLs
     const normalizedScans = scans.map((s: any) => ({
       ...s,
-      image_url:   toImageUrl(s.image_path  || s.image_url  || ''),
+      image_url: toImageUrl(s.image_path || s.image_url || ''),
       heatmap_url: toImageUrl(s.heatmap_path || s.heatmap_url || ''),
     }));
 
     const analysis = await HistoricalAnalysis.create({
       zoneId,
       zoneName,
-      bbox:       bbox || [],
-      dates:      dates || [],
+      bbox: bbox || [],
+      dates: dates || [],
       resolution: resolution || 20,
-      scans:      normalizedScans,
-      summary:    summary || {},
+      scans: normalizedScans,
+      summary: summary || {},
       ai_verdict: ai_verdict || '',
-      createdBy:  req.user?.id,
+      createdBy: req.user?.id,
     });
 
     res.status(201).json({
       success: true,
       message: 'Historical analysis saved',
-      data:    analysis,
+      data: analysis,
     });
   } catch (err) {
     res.status(500).json({ success: false, error: String(err) });
@@ -83,7 +83,7 @@ export const getAnalyses = async (req: AuthRequest, res: Response): Promise<void
 export const getAnalysis = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const analysis = await HistoricalAnalysis.findOne({
-      _id:       req.params.id,
+      _id: req.params.id,
       createdBy: req.user?.id,
     });
 
@@ -116,7 +116,7 @@ export const getAnalysesByZone = async (req: AuthRequest, res: Response): Promis
 export const deleteAnalysis = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const analysis = await HistoricalAnalysis.findOneAndDelete({
-      _id:       req.params.id,
+      _id: req.params.id,
       createdBy: req.user?.id,
     });
 

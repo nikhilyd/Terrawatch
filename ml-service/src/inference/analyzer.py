@@ -144,6 +144,9 @@ def analyze(
         "deforestation_detected": deforestation_detected,
         "heatmap_path":           heatmap_path,
         "original_image_path":    str(orig_path),
+
+        # Cloud masking info (from NDVI SCL layer)
+        "cloud_pct":              ndvi_result.get("cloud_pct", 0.0),
     }
 
     logger.info(

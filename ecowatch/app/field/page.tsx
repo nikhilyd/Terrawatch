@@ -152,24 +152,32 @@ export default function FieldOperationsPage() {
   const hasGps = currentLat !== null && currentLng !== null;
 
   const getGpsFix = () => {
-    if (geo.loading) {
-      toast.loading("Acquiring GPS fix...", { id: "gps" });
-    } else if (geo.error) {
-      toast.error("Failed to acquire GPS fix. Please enable location services.", { id: "gps" });
-    } else if (geo.latitude && geo.longitude) {
-      setManualLat(geo.latitude);
-      setManualLng(geo.longitude);
-      toast.success("GPS Coordinate locked.", { id: "gps" });
-    } else {
-      // Force trigger native geolocation if hook hasn't run successfully
-      navigator.geolocation.getCurrentPosition((pos) => {
+    if (!navigator.geolocation) {
+      toast.error("Geolocation is not supported by this browser.");
+      return;
+    }
+
+    toast.loading("Acquiring GPS fix...", { id: "gps" });
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
         setManualLat(pos.coords.latitude);
         setManualLng(pos.coords.longitude);
-        toast.success("GPS Coordinate locked.", { id: "gps" });
-      }, () => {
-        toast.error("Failed to acquire GPS fix.", { id: "gps" });
-      });
-    }
+        toast.success(`GPS locked: ${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`, { id: "gps" });
+      },
+      (err) => {
+        if (err.code === 1) {
+          toast.error("Location access denied. Allow location in browser settings.", { id: "gps" });
+        } else if (err.code === 2) {
+          toast.error("Location unavailable. Check GPS / network signal.", { id: "gps" });
+        } else if (err.code === 3) {
+          toast.error("GPS timeout. Try again in open area.", { id: "gps" });
+        } else {
+          toast.error("Failed to acquire GPS fix.", { id: "gps" });
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
   };
 
   const onSubmit = async (data: FieldReportForm) => {
@@ -290,36 +298,64 @@ export default function FieldOperationsPage() {
                     <Tooltip.Root>
                       <Tooltip.Trigger type="button" className="cursor-help"><Info size={12} className="text-zinc-500" /></Tooltip.Trigger>
                       <Tooltip.Content className="bg-zinc-800 text-xs px-2 py-1 rounded border border-white/10 shadow-xl" sideOffset={4}>
-                        We automatically ping your GPS via browser APIs. Ensure location access is allowed.
+                        Click FIX to acquire your current GPS coordinates. Allow location access when prompted.
                       </Tooltip.Content>
                     </Tooltip.Root>
                   </Tooltip.Provider>
                 </label>
                 <div className="flex gap-3">
-                  <div className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 flex items-center justify-between text-sm transition-all">
+                  <div className={cn(
+                    "flex-1 border rounded-xl px-4 py-3 flex items-center justify-between text-sm transition-all",
+                    hasGps
+                      ? "bg-emerald-500/5 border-emerald-500/30"
+                      : geo.error
+                      ? "bg-red-500/5 border-red-500/20"
+                      : "bg-white/5 border-white/10"
+                  )}>
                     {isMounted ? (
                       hasGps ? (
                         <span className="font-mono text-emerald-400">
-                          {currentLat.toFixed(6)}, {currentLng.toFixed(6)}
+                          {currentLat!.toFixed(6)}, {currentLng!.toFixed(6)}
+                        </span>
+                      ) : geo.error ? (
+                        <span className="text-red-400 font-mono text-xs flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                          {geo.error.code === 1 ? "Location Denied" : geo.error.code === 2 ? "Location Unavailable" : "GPS Error"}
                         </span>
                       ) : (
-                        <span className="text-zinc-600 font-mono flex items-center gap-2">
-                          {geo.loading ? "Locating satellite..." : "No GPS data"}
+                        <span className="text-zinc-500 font-mono text-xs flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 rounded-full bg-zinc-600 animate-pulse" />
+                          Click FIX to get coordinates
                         </span>
                       )
                     ) : (
-                      <span className="text-zinc-600 font-mono">Initializing GPS...</span>
+                      <span className="text-zinc-600 font-mono text-xs">Initializing...</span>
+                    )}
+
+                    {hasGps && (
+                      <button
+                        type="button"
+                        onClick={() => { setManualLat(null); setManualLng(null); }}
+                        className="text-[9px] font-mono text-zinc-600 hover:text-red-400 uppercase transition-colors"
+                      >
+                        Clear
+                      </button>
                     )}
                   </div>
                   <button
                     type="button"
                     onClick={getGpsFix}
-                    className="px-4 py-3 bg-white/5 border border-white/10 hover:bg-white/10 rounded-xl transition-colors disabled:opacity-50 flex items-center gap-2 text-sm text-cyan-400 font-mono uppercase"
+                    className="px-4 py-3 bg-white/5 border border-white/10 hover:bg-cyan-500/10 hover:border-cyan-500/30 rounded-xl transition-colors flex items-center gap-2 text-sm text-cyan-400 font-mono uppercase"
                   >
                     <MapPin size={16} />
                     Fix
                   </button>
                 </div>
+                {geo.error?.code === 1 && (
+                  <p className="text-[10px] font-mono text-red-400/70">
+                    ⚠ Open browser settings → Site Settings → Allow Location for localhost
+                  </p>
+                )}
               </div>
 
               {/* Photo Capture */}

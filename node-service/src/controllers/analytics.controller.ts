@@ -14,11 +14,13 @@ import HistoricalAnalysis from '../models/HistoricalAnalysis';
 import { AuthRequest } from '../middleware/auth.middleware';
 
 // ── GET /api/analytics/threat-distribution ──────────────────────────────────
-export const getThreatDistribution = async (_req: AuthRequest, res: Response): Promise<void> => {
+export const getThreatDistribution = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    const userZones = await Zone.find({ createdBy: req.user?.id, isActive: true }).select('_id');
+    const zoneIds   = userZones.map(z => z._id);
+
     const pipeline = [
-      // Sirf completed scans jinke paas valid threats hain ('none' ko hatana hai)
-      { $match: { status: 'completed' } },
+      { $match: { status: 'completed', zoneId: { $in: zoneIds } } },
       { $unwind: '$results.threats' },
       { $match: { 'results.threats': { $ne: 'none' } } },
       { $group: { _id: '$results.threats', count: { $sum: 1 } } },
@@ -54,8 +56,12 @@ export const getAlertsOverTime = async (req: AuthRequest, res: Response): Promis
     since.setMonth(since.getMonth() - months);
     since.setDate(1); // Start of month
 
+    // User ke zones filter
+    const userZones = await Zone.find({ createdBy: req.user?.id, isActive: true }).select('_id');
+    const zoneIds   = userZones.map(z => z._id);
+
     const pipeline = [
-      { $match: { createdAt: { $gte: since } } },
+      { $match: { createdAt: { $gte: since }, zoneId: { $in: zoneIds } } },
       {
         $group: {
           _id: {

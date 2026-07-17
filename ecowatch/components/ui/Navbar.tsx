@@ -37,7 +37,6 @@ export function Navbar() {
     { id: "zones",       label: "Mission Control", href: "/zones" },
     { id: "monitoring",  label: "Monitoring",      href: "/monitoring" },
     { id: "historical",  label: "Historical",      href: "/historical" },
-    { id: "field",       label: "Field Ops",       href: "/field" },
     { id: "legal",       label: "Legal",           href: "/legal" },
     { id: "export",      label: "Data Export",     href: "/export" },
   ];

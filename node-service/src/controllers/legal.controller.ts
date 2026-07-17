@@ -224,7 +224,7 @@ export const getZoneRiskScore = async (req: AuthRequest, res: Response): Promise
 // ── GET /api/legal/risk-scores — All zones ranked by risk ───────────────────
 export const getAllRiskScores = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const zones        = await Zone.find({ isActive: true });
+    const zones        = await Zone.find({ isActive: true, createdBy: req.user?.id });
     const since3months = new Date();
     since3months.setMonth(since3months.getMonth() - 3);
 

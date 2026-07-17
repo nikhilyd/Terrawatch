@@ -80,42 +80,91 @@ export const exportZoneScansCSV = async (req: AuthRequest, res: Response): Promi
 // ── GET /api/export/alerts/csv ──────────────────────────────────────────────
 export const exportAlertsCSV = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const alerts = await Alert.find().populate('zoneId', 'name').sort({ createdAt: -1 });
+    const userZones = await Zone.find({ createdBy: req.user?.id, isActive: true }).select('_id name');
+    const zoneIds   = userZones.map(z => z._id);
+    const zoneMap   = Object.fromEntries(userZones.map(z => [z._id.toString(), z.name]));
+
+    // ── Formal Alerts ─────────────────────────────────────────────────────────
+    const alerts = await Alert.find({ zoneId: { $in: zoneIds } }).sort({ createdAt: -1 });
+
+    // ── Scans with threats ────────────────────────────────────────────────────
+    const scans = await Scan.find({
+      zoneId: { $in: zoneIds },
+      status: 'completed',
+      'results.threats': { $exists: true, $not: { $size: 0 } },
+    }).sort({ createdAt: -1 });
+
+    // ── Historical scans with threats ─────────────────────────────────────────
+    const analyses = await HistoricalAnalysis.find({ zoneId: { $in: zoneIds } }).sort({ createdAt: -1 });
 
     const headers = [
-      'Alert ID',
-      'Date',
-      'Zone Name',
-      'Severity',
-      'Forest Loss %',
-      'Message',
-      'Change Type',
-      'Probable Cause'
+      'Source', 'Date', 'Zone Name', 'Severity',
+      'Forest Loss %', 'Threats Detected', 'Description / Message'
     ];
 
-    const rows = alerts.map(a => {
-      return [
-        a._id,
-        a.createdAt.toISOString(),
-        escapeCSV((a.zoneId as any)?.name || 'Unknown'),
+    const rows: string[] = [];
+
+    // Add formal alerts
+    for (const a of alerts) {
+      rows.push([
+        'Alert',
+        a.createdAt.toISOString().split('T')[0],
+        escapeCSV(zoneMap[(a.zoneId as any).toString()] || 'Unknown'),
         a.severity,
         a.forestLoss || '0',
+        '',
         escapeCSV(a.message || ''),
-        escapeCSV((a as any).changeType || ''),
-        escapeCSV((a as any).probableCause || '')
-      ].join(',');
-    });
+      ].join(','));
+    }
+
+    // Add regular scans with threats
+    for (const s of scans) {
+      const threats = (s.results?.threats as string[] || []).filter(t => t && t !== 'none');
+      if (threats.length === 0) continue;
+      rows.push([
+        'Scan',
+        (s.scanDate || s.createdAt).toISOString().split('T')[0],
+        escapeCSV(zoneMap[(s.zoneId as any).toString()] || 'Unknown'),
+        s.results?.severity || 'none',
+        '0',
+        escapeCSV(threats.join(', ')),
+        escapeCSV(s.results?.description || ''),
+      ].join(','));
+    }
+
+    // Add historical scan entries with threats
+    for (const a of analyses) {
+      for (const scan of (a.scans || []) as any[]) {
+        if (scan.status !== 'done') continue;
+        const threats = (scan.threats || []).filter((t: string) => t && t !== 'none');
+        if (threats.length === 0) continue;
+        rows.push([
+          'Historical',
+          scan.date || '',
+          escapeCSV((a as any).zoneName || 'Unknown'),
+          scan.severity || 'none',
+          (scan.delta_from_first ?? 0).toFixed(2),
+          escapeCSV(threats.join(', ')),
+          escapeCSV(scan.description || ''),
+        ].join(','));
+      }
+    }
+
+    if (rows.length === 0) {
+      // No threats at all — return informational CSV
+      rows.push(['No threats detected yet across any zones','','','','','',''].join(','));
+    }
 
     const csvContent = [headers.join(','), ...rows].join('\n');
-
     res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename="EcoWatch_All_Alerts.csv"`);
+    res.setHeader('Content-Disposition', 'attachment; filename="EcoWatch_Global_Threat_Log.csv"');
     res.send(csvContent);
 
   } catch (err) {
     if (!res.headersSent) res.status(500).json({ success: false, error: String(err) });
   }
 };
+
 
 // ── GET /api/export/zone/:id/stats ───────────────────────────────────────────
 export const getZoneExportStats = async (req: AuthRequest, res: Response): Promise<void> => {

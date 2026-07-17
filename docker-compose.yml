@@ -81,6 +81,7 @@ services:
       SMTP_USER:           ${SMTP_USER:-}
       SMTP_PASS:           ${SMTP_PASS:-}
       UPLOAD_DIR:          uploads/
+      ML_SERVICE_URL:      http://host.docker.internal:8001
     restart: on-failure
     networks: [ecowatch-net]
 

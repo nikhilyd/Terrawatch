@@ -90,9 +90,11 @@ class ScanJobConsumer:
 
             # ── 2. NDVI + Qwen2-VL analyze karo ─────────────────────────────
             result = analyze(
-                rgb    = image_data["rgb"],
-                nir    = image_data["nir"],
-                job_id = job_id,
+                rgb     = image_data["rgb"],
+                nir     = image_data["nir"],
+                job_id  = job_id,
+                red_raw = image_data.get("red_raw"),
+                scl     = image_data.get("scl"),
             )
 
             # ── 3. Result publish karo ──────────────────────────────────

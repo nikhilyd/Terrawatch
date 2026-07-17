@@ -1,13 +1,16 @@
 """
 API Routes
 ----------
-GET  /api/health   → Service + model status
-POST /api/analyze  → Manual zone analysis (Sentinel Hub + NDVI + Qwen2-VL)
-POST /api/compare  → Deep comparison: 2 images to Qwen (NDVI threat confirm hone ke baad)
+GET  /api/health          → Service + model status
+POST /api/analyze         → Manual zone analysis (Sentinel Hub + NDVI + Qwen2-VL)
+POST /api/compare         → Deep comparison: 2 images to Qwen
+POST /api/analyze-field   → Field officer photo → Qwen2-VL ground-level analysis
 """
 
 import uuid
 import os
+import base64
+import io
 import numpy as np
 from PIL import Image as PILImage
 from fastapi import APIRouter, HTTPException
@@ -179,6 +182,145 @@ def run_cleanup(req: CleanupRequest = CleanupRequest()):
     }
 
 
+# ── POST /analyze-field ───────────────────────────────────────────────────────
+class FieldAnalyzeRequest(BaseModel):
+    image_base64: str                   # Base64 encoded field photo
+    zone_name:    str                   # Zone name for context
+    gps:          Optional[dict] = None # {"lat": float, "lng": float}
+    notes:        Optional[str]  = ""   # Field officer notes
+
+
+class FieldAnalyzeResponse(BaseModel):
+    threats:     List[str]
+    severity:    str
+    description: str
+    confidence:  str
+
+
+FIELD_PROMPT = """You are an expert field environmental analyst.
+A field officer has taken this ground-level photo from a forest or protected area.
+
+Analyze this photo for environmental threats or illegal activities.
+
+Look for:
+- Signs of illegal logging (fresh tree stumps, cut logs, chainsaw marks)
+- Illegal mining (excavation, machinery, disturbed soil, chemical waste)
+- Poaching activity (traps, animal remains, hunting equipment)
+- Encroachment (structures, fires, agriculture in forest areas)
+- Water pollution (discolored water, chemical dumping, waste)
+- Fire damage (burnt vegetation, smoke, ash)
+- Healthy forest (dense canopy, no visible threats)
+
+Respond ONLY with valid JSON in this exact format:
+{
+  "threats": [],
+  "severity": "none",
+  "description": "...",
+  "confidence": "high"
+}
+
+Rules:
+- "threats": array from: ["illegal_logging", "illegal_mining", "poaching", "encroachment", "water_pollution", "fire", "none"]
+- "severity": one of "none", "low", "medium", "high", "critical"
+- "description": 2-3 sentences describing exactly what you see in the photo
+- "confidence": "low", "medium", or "high" based on image clarity
+
+If the image is blurry, dark, or unclear, set confidence to "low".
+"""
+
+
+@router.post("/analyze-field", response_model=FieldAnalyzeResponse)
+def analyze_field_photo(req: FieldAnalyzeRequest):
+    """
+    Field officer ground photo → Qwen2-VL analysis.
+    Accepts base64 image, returns threats/severity/description.
+    """
+    if vl_analyzer._analyzer._model is None:
+        raise HTTPException(503, "Qwen2-VL model not loaded yet")
+
+    logger.info(f"[Field] Analyzing field photo | zone={req.zone_name} | gps={req.gps}")
+
+    # Decode base64 → PIL → numpy
+    try:
+        img_bytes = base64.b64decode(req.image_base64)
+        pil_img   = PILImage.open(io.BytesIO(img_bytes)).convert("RGB")
+        # Resize to 768x768 for Qwen optimal performance
+        pil_img   = pil_img.resize((768, 768), PILImage.LANCZOS)
+        rgb       = np.array(pil_img)
+    except Exception as e:
+        raise HTTPException(400, f"Invalid image data: {e}")
+
+    # Build context-aware prompt
+    context_parts = [f"Zone: {req.zone_name}"]
+    if req.gps:
+        context_parts.append(f"GPS: {req.gps.get('lat', 0):.4f}, {req.gps.get('lng', 0):.4f}")
+    if req.notes:
+        context_parts.append(f"Officer notes: {req.notes}")
+    context = " | ".join(context_parts)
+
+    # Run Qwen with field-specific prompt
+    try:
+        import torch
+        import json
+        import re
+
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image", "image": pil_img},
+                    {"type": "text",  "text": FIELD_PROMPT + f"\n\nContext: {context}"},
+                ],
+            }
+        ]
+
+        processor = vl_analyzer._analyzer._processor
+        model     = vl_analyzer._analyzer._model
+        device    = vl_analyzer._analyzer._device
+
+        text   = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+        inputs = processor(text=[text], images=[pil_img], return_tensors="pt").to(device)
+
+        with torch.no_grad():
+            output_ids = model.generate(
+                **inputs,
+                max_new_tokens = 250,
+                do_sample      = False,
+                temperature    = None,
+                top_p          = None,
+            )
+
+        generated = output_ids[:, inputs["input_ids"].shape[1]:]
+        response  = processor.batch_decode(generated, skip_special_tokens=True)[0].strip()
+
+        logger.info(f"[Field] Qwen raw response: {response[:200]}")
+
+        # Parse JSON
+        json_match = re.search(r'\{.*\}', response, re.DOTALL)
+        if json_match:
+            result = json.loads(json_match.group())
+            return FieldAnalyzeResponse(
+                threats     = result.get("threats",     ["none"]),
+                severity    = result.get("severity",    "none"),
+                description = result.get("description", "Analysis complete."),
+                confidence  = result.get("confidence",  "low"),
+            )
+        else:
+            logger.warning(f"[Field] No JSON in response: {response}")
+            return FieldAnalyzeResponse(
+                threats=["none"], severity="none",
+                description="Could not parse AI response.", confidence="low"
+            )
+
+    except Exception as e:
+        logger.error(f"[Field] Qwen analysis failed: {e}", exc_info=True)
+        return FieldAnalyzeResponse(
+            threats=["none"], severity="none",
+            description="AI analysis failed — report saved for manual review.",
+            confidence="low"
+        )
+
+
 # ── POST /historical/analyze ─────────────────────────────────────────────────
 class HistoricalScanRequest(BaseModel):
     zone_id:        str
@@ -257,9 +399,9 @@ def historical_analyze(req: HistoricalScanRequest):
         }
 
         try:
-            # Date window: ±30 days (wider = more cloud-free shots available)
+            # Date window: target-30d to target (Sentinel picks best cloud-free in range)
             from datetime import datetime, timedelta
-            target = datetime.strptime(date_str, "%Y-%m-%d")
+            target    = datetime.strptime(date_str, "%Y-%m-%d")
             date_from = (target - timedelta(days=30)).strftime("%Y-%m-%d")
             date_to   = target.strftime("%Y-%m-%d")
 
@@ -270,20 +412,80 @@ def historical_analyze(req: HistoricalScanRequest):
                 resolution  = req.resolution or 20,
             )
 
-            # Validate — reject blank/mostly-cloud images
+            # Validate — reject completely blank images
             if not validate_image(image_data["rgb"]):
                 scan_entry["skip_reason"] = "Blank or invalid image (cloud cover too high)"
                 logger.warning(f"[Historical] Skipped {date_str} — blank image")
                 results.append(scan_entry)
                 continue
 
-            job_id = f"hist-{req.zone_id[:8]}-{date_str}"
+            # ── PRE-CHECK: Cloud cover from SCL before expensive analysis ─────
+            MAX_CLOUD_PCT = 30.0
+            scl = image_data.get("scl")
+            pre_cloud_pct = 0.0
+            if scl is not None:
+                import numpy as np
+                CLOUD_SCL_VALUES = {0, 3, 8, 9, 10}
+                cloud_mask    = np.isin(scl, list(CLOUD_SCL_VALUES))
+                pre_cloud_pct = round(float(cloud_mask.sum() / cloud_mask.size * 100), 1)
+
+            # ── Auto-retry: try next 40 days if cloudy ───────────────────────
+            if pre_cloud_pct > MAX_CLOUD_PCT:
+                logger.warning(
+                    f"[Historical] {date_str} cloudy ({pre_cloud_pct:.0f}%) — "
+                    f"retrying with next 40-day forward window..."
+                )
+                retry_from = target.strftime("%Y-%m-%d")
+                retry_to   = (target + timedelta(days=40)).strftime("%Y-%m-%d")
+                try:
+                    image_data = fetch_image(
+                        bbox_coords = req.bbox,
+                        date_from   = retry_from,
+                        date_to     = retry_to,
+                        resolution  = req.resolution or 20,
+                    )
+                    if not validate_image(image_data["rgb"]):
+                        raise ValueError("Retry image also blank")
+                    # Recalculate cloud_pct for retry image
+                    scl = image_data.get("scl")
+                    if scl is not None:
+                        cloud_mask    = np.isin(scl, list(CLOUD_SCL_VALUES))
+                        pre_cloud_pct = round(float(cloud_mask.sum() / cloud_mask.size * 100), 1)
+                    else:
+                        pre_cloud_pct = 0.0
+                    logger.info(
+                        f"[Historical] {date_str} retry window ({retry_from} to {retry_to}) "
+                        f"=> cloud={pre_cloud_pct:.0f}%"
+                    )
+                except Exception as retry_err:
+                    logger.warning(f"[Historical] {date_str} retry also failed: {retry_err}")
+                    scan_entry["skip_reason"] = (
+                        f"High cloud cover ({pre_cloud_pct:.0f}%) in both windows. "
+                        f"Try a different season."
+                    )
+                    results.append(scan_entry)
+                    continue
+
+            # ── Final cloud check after possible retry ────────────────────────
+            if pre_cloud_pct > MAX_CLOUD_PCT:
+                scan_entry["skip_reason"] = (
+                    f"High cloud cover — {pre_cloud_pct:.0f}% pixels masked. "
+                    f"No clear image found in ±40 day window."
+                )
+                logger.warning(
+                    f"[Historical] {date_str} PRE-SKIPPED: {pre_cloud_pct:.0f}% cloud "
+                    f"even after retry — skipping Qwen2-VL"
+                )
+                results.append(scan_entry)
+                continue
+
+            job_id = f"hist-{req.zone_id[:8]}-{date_str}-{uuid.uuid4().hex[:4]}"
             result = analyze(
                 rgb     = image_data["rgb"],
                 nir     = image_data["nir"],
                 job_id  = job_id,
                 red_raw = image_data.get("red_raw"),
-                scl     = image_data.get("scl"),
+                scl     = scl,
             )
 
             forest_pct = result["forest_percentage"]
@@ -294,21 +496,6 @@ def historical_analyze(req: HistoricalScanRequest):
             loss_ha    = calculate_loss_hectares(req.bbox, first_forest_pct or forest_pct, forest_pct)
 
             cloud_pct = result.get("cloud_pct", 0.0)
-
-            # ── Auto-skip if extreme cloud cover (>80% pixels masked) ─────────
-            # Extreme cloud scenes se NDVI unreliable hoti hai — skip karo
-            MAX_CLOUD_PCT = 80.0
-            if cloud_pct > MAX_CLOUD_PCT:
-                scan_entry["skip_reason"] = (
-                    f"Extreme cloud cover — {cloud_pct:.0f}% pixels masked by SCL. "
-                    f"Try a different date or wider time window."
-                )
-                logger.warning(
-                    f"[Historical] {date_str} → AUTO-SKIPPED: {cloud_pct:.0f}% cloud cover "
-                    f"exceeds {MAX_CLOUD_PCT:.0f}% threshold"
-                )
-                results.append(scan_entry)
-                continue
 
             scan_entry.update({
                 "status":           "done",
@@ -327,7 +514,7 @@ def historical_analyze(req: HistoricalScanRequest):
                 "loss_hectares":    loss_ha,
             })
             logger.info(
-                f"[Historical] {date_str} → forest={forest_pct}% | "
+                f"[Historical] {date_str} -> forest={forest_pct}% | "
                 f"cloud_masked={cloud_pct:.1f}% | delta={delta}%"
             )
 

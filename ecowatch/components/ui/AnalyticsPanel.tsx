@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis } from "recharts";
 import { AnalyticsResponse, AlertsOverTimeResponse } from "@/types/dashboard.types";
-import { ShieldAlert, SignalHigh, ServerCrash, TrendingUp, Satellite, History, TreePine, AlertTriangle, Cpu } from "lucide-react";
+import { SignalHigh, ServerCrash, TrendingUp, Satellite, History, AlertTriangle, Cpu, TreePine, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 
 interface AnalyticsPanelProps {
@@ -27,7 +27,6 @@ export function AnalyticsPanel({ analytics, alertsOverTime, riskScores }: Analyt
   const [topRiskZone, setTopRiskZone]   = useState<{ name: string; score: number } | null>(null);
 
   // New feature states
-  const [fieldReports,  setFieldReports]  = useState<{ pending: number; analyzed: number }>({ pending: 0, analyzed: 0 });
   const [avgForestPct,  setAvgForestPct]  = useState<number | null>(null);
   const [recentAnalyses, setRecentAnalyses] = useState<any[]>([]);
   const [threatTypes,   setThreatTypes]   = useState<{ threat: string; count: number; color: string }[]>([]);
@@ -50,7 +49,7 @@ export function AnalyticsPanel({ analytics, alertsOverTime, riskScores }: Analyt
     // ── 2. ML Service Health ─────────────────────────────────────────────────
     const checkML = async () => {
       try {
-        const r = await fetch("http://localhost:8001/health", { signal: AbortSignal.timeout(3000) });
+        const r = await fetch("http://localhost:8001/api/health", { signal: AbortSignal.timeout(3000) });
         setMlOnline(r.ok);
       } catch { setMlOnline(false); }
     };
@@ -87,14 +86,6 @@ export function AnalyticsPanel({ analytics, alertsOverTime, riskScores }: Analyt
           today.setHours(0, 0, 0, 0);
           const count = (alertsRes.data ?? []).filter((a: any) => new Date(a.createdAt) >= today).length;
           setTodayAlerts(count);
-        }
-
-        // F1: Field Reports
-        const frRes = await fetch("http://localhost:5000/api/field", { headers }).then(r => r.json());
-        if (frRes.success) {
-          const pending  = (frRes.data ?? []).filter((r: any) => r.status === 'pending').length;
-          const analyzed = (frRes.data ?? []).filter((r: any) => r.status === 'analyzed').length;
-          setFieldReports({ pending, analyzed });
         }
 
         // F3: Threat type breakdown
@@ -242,29 +233,6 @@ export function AnalyticsPanel({ analytics, alertsOverTime, riskScores }: Analyt
             </button>
           </Link>
         </div>
-      </div>
-
-      {/* F1: Ground Intelligence — Field Reports Widget */}
-      <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl p-4 flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-[10px] font-mono tracking-widest uppercase text-orange-500">Ground Intelligence</h3>
-          <ShieldAlert size={13} className="text-zinc-500" />
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <div className="flex flex-col items-center p-2 bg-amber-500/5 border border-amber-500/20 rounded-lg">
-            <span className="text-xl font-bold text-amber-400">{fieldReports.pending}</span>
-            <span className="text-[9px] font-mono text-zinc-500 uppercase">Pending</span>
-          </div>
-          <div className="flex flex-col items-center p-2 bg-emerald-500/5 border border-emerald-500/20 rounded-lg">
-            <span className="text-xl font-bold text-emerald-400">{fieldReports.analyzed}</span>
-            <span className="text-[9px] font-mono text-zinc-500 uppercase">Analyzed</span>
-          </div>
-        </div>
-        <Link href="/field">
-          <button className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[10px] font-mono uppercase tracking-wider text-orange-400 border border-orange-500/20 hover:bg-orange-500/10 transition-all">
-            View Field Ops →
-          </button>
-        </Link>
       </div>
 
       {/* F2: Global Forest Health Progress Bar */}

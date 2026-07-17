@@ -1,12 +1,17 @@
 import { Response } from 'express';
 import Alert from '../models/Alert';
+import Zone from '../models/Zone';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { broadcastAlertUpdate } from '../utils/socket';
 
 // GET /api/alerts
-export const getAlerts = async (_req: AuthRequest, res: Response): Promise<void> => {
+export const getAlerts = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const alerts = await Alert.find()
+    // Only user's own zones ke alerts
+    const userZones = await Zone.find({ createdBy: req.user?.id, isActive: true }).select('_id');
+    const zoneIds   = userZones.map(z => z._id);
+
+    const alerts = await Alert.find({ zoneId: { $in: zoneIds } })
       .populate('zoneId', 'name coordinates')
       .sort({ createdAt: -1 })
       .limit(50);
@@ -45,13 +50,18 @@ export const markRead = async (req: AuthRequest, res: Response): Promise<void> =
 };
 
 // GET /api/alerts/stats — Dashboard ke liye
-export const getStats = async (_req: AuthRequest, res: Response): Promise<void> => {
+export const getStats = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    // User ke zones ke basis pe stats
+    const userZones = await Zone.find({ createdBy: req.user?.id, isActive: true }).select('_id');
+    const zoneIds   = userZones.map(z => z._id);
+    const baseFilter = { zoneId: { $in: zoneIds } };
+
     const [total, unread, critical, high] = await Promise.all([
-      Alert.countDocuments(),
-      Alert.countDocuments({ isRead: false }),
-      Alert.countDocuments({ severity: 'CRITICAL' }),
-      Alert.countDocuments({ severity: 'HIGH' }),
+      Alert.countDocuments(baseFilter),
+      Alert.countDocuments({ ...baseFilter, isRead: false }),
+      Alert.countDocuments({ ...baseFilter, severity: 'CRITICAL' }),
+      Alert.countDocuments({ ...baseFilter, severity: 'HIGH' }),
     ]);
 
     res.json({
