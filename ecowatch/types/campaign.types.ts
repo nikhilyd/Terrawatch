@@ -73,9 +73,15 @@ export interface HistoricalScan {
   skip_reason:      string;
   ndvi_mean:        number;
   forest_pct:       number;
+  vegetation_pct:   number;
+  water_pct:        number;
+  bare_soil_pct:    number;
+  cloud_pct:        number;   // % pixels masked out (SCL cloud/shadow)
   threats:          string[];
   severity:         string;
+  description:      string;
   image_path:       string;
+  heatmap_path:     string;
   delta_from_first: number;
   loss_hectares:    number;
 }

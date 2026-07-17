@@ -27,20 +27,24 @@ logger = get_logger("analyzer")
 
 
 def analyze(
-    rgb:    np.ndarray,   # (H, W, 3) uint8  — from Sentinel Hub
-    nir:    np.ndarray,   # (H, W)    float32 — from Sentinel Hub
-    job_id: str = None,
+    rgb:     np.ndarray,          # (H, W, 3) uint8  — display (gamma-corrected)
+    nir:     np.ndarray,          # (H, W)    float32 — raw B08
+    job_id:  str = None,
+    red_raw: np.ndarray = None,   # (H, W) float32 — raw B04 for accurate NDVI
+    scl:     np.ndarray = None,   # (H, W) uint8   — SCL band for cloud masking
 ) -> dict:
     """
-    Full analysis pipeline: NDVI + Qwen2-VL.
+    Full analysis pipeline: NDVI (with SCL cloud masking) + Qwen2-VL.
 
     Args:
-        rgb    : RGB satellite image (H, W, 3) uint8
-        nir    : NIR band (H, W) float32 0-1
-        job_id : Unique job identifier
+        rgb     : RGB satellite image (H, W, 3) uint8 — display/Qwen ke liye
+        nir     : NIR band (H, W) float32 0-1 — raw B08
+        job_id  : Unique job identifier
+        red_raw : Raw B04 band (H, W) float32 0-1 — accurate NDVI ke liye
+        scl     : Scene Classification Layer (H, W) uint8 — cloud masking
 
     Returns:
-        dict with ndvi metrics + vl analysis + combined result
+        dict with ndvi metrics + cloud_pct + vl analysis + combined result
     """
     job_id = job_id or str(uuid.uuid4())[:8]
     H, W   = rgb.shape[:2]
@@ -50,11 +54,13 @@ def analyze(
         f"[{job_id}] Pixel stats | "
         f"rgb_min={rgb.min()} rgb_max={rgb.max()} rgb_mean={rgb.mean():.1f} | "
         f"nir_mean={nir.mean():.3f}"
+        + (f" | red_raw_mean={red_raw.mean():.3f}" if red_raw is not None else " | red_raw=None(fallback)")
+        + (f" | scl=present" if scl is not None else " | scl=None(no cloud masking)")
     )
 
-    # -- Track 1: NDVI (instant, ~0.1 sec) ------------------------------------
-    logger.info(f"[{job_id}] Running NDVI calculation...")
-    ndvi_result = ndvi_calc.calculate(rgb, nir)
+    # -- Track 1: NDVI + SCL Cloud Masking (instant, ~0.1 sec) ---------------
+    logger.info(f"[{job_id}] Running NDVI + SCL cloud masking...")
+    ndvi_result = ndvi_calc.calculate(rgb, nir, red_raw=red_raw, scl=scl)
 
     # -- Track 2: Qwen2-VL (5-8 sec GPU / 60-90 sec CPU) ---------------------
     logger.info(f"[{job_id}] Running Qwen2-VL analysis...")
@@ -82,18 +88,33 @@ def analyze(
     # 3. NDVI medium-low (10-30%) + Qwen ne koi bhi threat detect kiya → Flag
     # 4. Qwen says none + NDVI > 30% → Clear area
     ndvi_forest    = ndvi_result["forest_pct"]
+    ndvi_water     = ndvi_result["water_pct"]
     qwen_threats   = vl_result["threats"]
     qwen_deforest  = "deforestation" in qwen_threats or "agricultural_expansion" in qwen_threats
+    forest_visible = vl_result.get("forest_visible", True)
 
-    if ndvi_forest < 10.0:
-        # Critically low NDVI — definitely deforested/bare
+    # ── Smart deforestation logic ──────────────────────────────────────────────
+    # Rule 1: Qwen ne explicitly deforestation detect kiya → Always flag
+    if qwen_deforest:
         deforestation_detected = True
-    elif qwen_deforest:
-        # Qwen explicitly detected clearing
+
+    # Rule 2: Low NDVI + Qwen ne koi threat detect kiya → Flag
+    elif ndvi_forest < 30.0 and len([t for t in qwen_threats if t not in ("none", "")]) > 0:
         deforestation_detected = True
-    elif ndvi_forest < 30.0 and len([t for t in qwen_threats if t != "none"]) > 0:
-        # Low forest + any threat seen by Qwen
+
+    # Rule 3: NDVI low BUT zone is mostly water (river/lake/wetland) → NOT deforestation
+    elif ndvi_forest < 10.0 and ndvi_water > 50.0:
+        # Yeh water body hai, forest kabhi tha hi nahi
+        deforestation_detected = False
+
+    # Rule 4: NDVI low AND Qwen bhi bolta hai forest visible nahi → Flag
+    elif ndvi_forest < 10.0 and not forest_visible:
         deforestation_detected = True
+
+    # Rule 5: NDVI critically low + no water explanation + no Qwen threats → Uncertain, flag conservatively
+    elif ndvi_forest < 5.0 and ndvi_water < 30.0:
+        deforestation_detected = True
+
     else:
         deforestation_detected = False
 

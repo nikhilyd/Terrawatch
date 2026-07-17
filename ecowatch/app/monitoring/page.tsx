@@ -14,17 +14,23 @@ import { Campaign, CampaignScan } from "@/types/campaign.types";
 import { Zone } from "@/types/zone.types";
 import { io } from "socket.io-client";
 
+// ── Days until a date (positive = future) ────────────────────────────────────
+const daysUntil = (d: Date) => Math.ceil((new Date(d).getTime() - Date.now()) / 86400000);
+
 // ── Scan status badge ────────────────────────────────────────────────────────
-function ScanBadge({ scan, index }: { scan: CampaignScan; index: number }) {
+function ScanBadge({ scan, index, currentScanIdx }: { scan: CampaignScan; index: number; currentScanIdx: number }) {
   const isBaseline = scan.isBaseline;
-  const date = new Date(scan.scheduledDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
+  const date       = new Date(scan.scheduledDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  const days       = daysUntil(new Date(scan.scheduledDate));
+  // A scan is "locked" if it comes after the next pending scan
+  const isLocked   = scan.status === "pending" && index > currentScanIdx;
 
   const statusConfig = {
     done: {
-      dot: isBaseline ? "bg-blue-400" : scan.deltaFromPrevious >= 10 ? "bg-red-400" : scan.deltaFromPrevious >= 5 ? "bg-yellow-400" : "bg-emerald-400",
+      dot:  isBaseline ? "bg-blue-400" : scan.deltaFromPrevious >= 10 ? "bg-red-400" : scan.deltaFromPrevious >= 5 ? "bg-yellow-400" : "bg-emerald-400",
       text: isBaseline ? "text-blue-300" : scan.deltaFromPrevious >= 10 ? "text-red-300" : "text-emerald-300",
     },
-    pending:    { dot: "bg-white/20",  text: "text-white/40" },
+    pending:    { dot: isLocked ? "bg-white/10" : days > 1 ? "bg-white/25" : "bg-yellow-400 animate-pulse", text: "text-white/40" },
     processing: { dot: "bg-yellow-400 animate-pulse", text: "text-yellow-300" },
     skipped:    { dot: "bg-white/10",  text: "text-white/30" },
   };
@@ -43,8 +49,18 @@ function ScanBadge({ scan, index }: { scan: CampaignScan; index: number }) {
               BASELINE
             </span>
           )}
-          {scan.status === "pending" && (
-            <span className={`text-[10px] ${cfg.text}`}>⏳ Pending</span>
+          {/* Pending: show countdown or locked */}
+          {scan.status === "pending" && !isLocked && (
+            days > 1  ? (
+              <span className="text-[10px] text-yellow-300/80">⏳ {days} days away</span>
+            ) : days >= 0 ? (
+              <span className="text-[10px] text-amber-300 animate-pulse">⚡ Due soon — awaiting scheduler</span>
+            ) : (
+              <span className="text-[10px] text-red-400">⚠️ Overdue — will run next cycle</span>
+            )
+          )}
+          {scan.status === "pending" && isLocked && (
+            <span className="text-[10px] text-white/25">🔒 Locked — prior scan pending</span>
           )}
           {scan.status === "processing" && (
             <span className="text-[10px] text-yellow-300 animate-pulse">⚡ Processing…</span>
@@ -130,6 +146,24 @@ function CampaignCard({ campaign, onRefresh }: { campaign: Campaign; onRefresh: 
             </span>
           </div>
           {zone && <p className="text-xs text-white/40 mt-0.5">Zone: {zone.name} · {campaign.resolution}m resolution</p>}
+          {/* Next scan countdown for active campaigns */}
+          {campaign.status === "active" && (() => {
+            const nextScan = campaign.scans.find((s, i) => s.status === "pending" && i === campaign.currentScanIdx);
+            if (!nextScan) return null;
+            const d = daysUntil(new Date(nextScan.scheduledDate));
+            return (
+              <p className={`text-xs mt-0.5 font-medium ${
+                d > 7 ? "text-emerald-400/60" : d > 0 ? "text-yellow-400" : "text-amber-400 animate-pulse"
+              }`}>
+                {d > 0
+                  ? `🛰️ Next scan in ${d} day${d !== 1 ? "s" : ""} — ${new Date(nextScan.scheduledDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`
+                  : "⚡ Next scan due — will trigger on next hourly check"}
+              </p>
+            );
+          })()}
+          {campaign.status === "completed" && (
+            <p className="text-xs mt-0.5 text-blue-400/60">✅ All scans completed</p>
+          )}
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           {campaign.status !== "completed" && (
@@ -192,7 +226,7 @@ function CampaignCard({ campaign, onRefresh }: { campaign: Campaign; onRefresh: 
           >
             <div className="px-4 pb-4 border-t border-white/5 pt-3 space-y-0">
               {campaign.scans.map((scan, i) => (
-                <ScanBadge key={i} scan={scan} index={i} />
+                <ScanBadge key={i} scan={scan} index={i} currentScanIdx={campaign.currentScanIdx} />
               ))}
             </div>
           </motion.div>
@@ -348,13 +382,14 @@ export default function MonitoringPage() {
 
               {/* Date Picker */}
               <div className="space-y-2">
-                <label className="text-xs text-emerald-400 font-semibold uppercase tracking-wider">Time Window & Scan Schedule *</label>
+                <label className="text-xs text-emerald-400 font-semibold uppercase tracking-wider">Schedule Future Scans *</label>
                 <div className="p-4 rounded-xl bg-white/3 border border-white/10">
                   <FlexibleDatePicker
                     onDatesChange={(dates, m) => { setSelectedDates(dates); setMode(m); }}
                     onScanCountChange={setScanCount}
                     bbox={selectedZone?.bbox ? [selectedZone.bbox.lng_min, selectedZone.bbox.lat_min, selectedZone.bbox.lng_max, selectedZone.bbox.lat_max] : undefined}
                     disabled={creating}
+                    forceFuture={true}
                   />
                 </div>
               </div>

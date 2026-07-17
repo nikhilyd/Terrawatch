@@ -241,22 +241,113 @@ export function ScanJobsPanel({ zone, scans, isLoading, onTriggerScan, onRetrySc
                     <ScanProgressBar status={scan.status} />
                   )}
 
-                  {scan.status === 'completed' && (
-                    <div className="mt-2 grid grid-cols-2 gap-2">
-                      <div className="bg-black/20 p-2 rounded flex flex-col">
-                        <span className="text-[9px] uppercase tracking-widest opacity-60">Deforestation</span>
-                        <span className="text-xs font-mono font-bold mt-0.5">
-                          {scan.results?.deforestationDetected ? <span className="text-red-400">DETECTED</span> : <span className="text-emerald-400">CLEAR</span>}
-                        </span>
+                  {scan.status === 'completed' && scan.results && (() => {
+                    const r = scan.results;
+                    const severityColor: Record<string, string> = {
+                      none:     "text-emerald-400 bg-emerald-500/10 border-emerald-500/30",
+                      low:      "text-yellow-400  bg-yellow-500/10  border-yellow-500/30",
+                      medium:   "text-orange-400  bg-orange-500/10  border-orange-500/30",
+                      high:     "text-red-400     bg-red-500/10     border-red-500/30",
+                      critical: "text-red-300     bg-red-900/30     border-red-400/50",
+                    };
+                    const threatColors: Record<string, string> = {
+                      deforestation:        "bg-red-500/20 text-red-300 border-red-500/30",
+                      illegal_mining:       "bg-orange-500/20 text-orange-300 border-orange-500/30",
+                      agricultural_expansion: "bg-yellow-500/20 text-yellow-300 border-yellow-500/30",
+                      water_pollution:      "bg-blue-500/20 text-blue-300 border-blue-500/30",
+                      urban_encroachment:   "bg-purple-500/20 text-purple-300 border-purple-500/30",
+                      fire_damage:          "bg-red-600/20 text-red-400 border-red-600/30",
+                    };
+                    const landBars = [
+                      { label: "Forest",  pct: r.forestPercentage,     color: "bg-emerald-500" },
+                      { label: "Veg",     pct: r.vegetationPercentage, color: "bg-lime-500" },
+                      { label: "Water",   pct: r.waterPercentage,      color: "bg-cyan-500" },
+                      { label: "Bare",    pct: r.bareSoilPercentage,   color: "bg-orange-500" },
+                    ];
+                    const realThreats = (r.threats || []).filter(t => t && t !== "none");
+
+                    return (
+                      <div className="mt-2 flex flex-col gap-3">
+
+                        {/* Row 1: Deforestation + Severity + Confidence */}
+                        <div className="grid grid-cols-3 gap-1.5">
+                          <div className="bg-black/30 p-2 rounded-lg flex flex-col gap-0.5">
+                            <span className="text-[8px] uppercase tracking-widest text-white/40">Status</span>
+                            <span className={`text-[10px] font-mono font-bold ${r.deforestationDetected ? "text-red-400" : "text-emerald-400"}`}>
+                              {r.deforestationDetected ? "⚠ DETECTED" : "✓ CLEAR"}
+                            </span>
+                          </div>
+                          <div className="bg-black/30 p-2 rounded-lg flex flex-col gap-0.5">
+                            <span className="text-[8px] uppercase tracking-widest text-white/40">Severity</span>
+                            <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border w-fit ${severityColor[r.severity] || severityColor.none}`}>
+                              {(r.severity || "none").toUpperCase()}
+                            </span>
+                          </div>
+                          <div className="bg-black/30 p-2 rounded-lg flex flex-col gap-0.5">
+                            <span className="text-[8px] uppercase tracking-widest text-white/40">AI Conf.</span>
+                            <span className={`text-[10px] font-mono font-bold uppercase ${
+                              r.vlConfidence === "high" ? "text-emerald-400" :
+                              r.vlConfidence === "medium" ? "text-yellow-400" : "text-red-400"
+                            }`}>{r.vlConfidence || "N/A"}</span>
+                          </div>
+                        </div>
+
+                        {/* Row 2: NDVI land cover breakdown */}
+                        <div className="bg-black/30 p-2.5 rounded-lg">
+                          <p className="text-[8px] uppercase tracking-widest text-white/40 mb-2">NDVI Land Cover</p>
+                          <div className="space-y-1.5">
+                            {landBars.map(b => (
+                              <div key={b.label} className="flex items-center gap-2">
+                                <span className="text-[9px] text-white/50 w-10 font-mono">{b.label}</span>
+                                <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full ${b.color}`}
+                                    style={{ width: `${Math.min(b.pct, 100)}%` }}
+                                  />
+                                </div>
+                                <span className="text-[9px] text-white/60 font-mono w-9 text-right">
+                                  {b.pct?.toFixed(1)}%
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                          <p className="text-[8px] text-white/30 mt-1.5 font-mono">
+                            NDVI mean: {r.ndviMean?.toFixed(3)} &nbsp;|&nbsp; min: {r.ndviMin?.toFixed(3)} &nbsp;|&nbsp; max: {r.ndviMax?.toFixed(3)}
+                          </p>
+                        </div>
+
+                        {/* Row 3: Detected threats */}
+                        {realThreats.length > 0 && (
+                          <div className="bg-black/30 p-2.5 rounded-lg">
+                            <p className="text-[8px] uppercase tracking-widest text-white/40 mb-1.5">Detected Threats</p>
+                            <div className="flex flex-wrap gap-1">
+                              {realThreats.map(t => (
+                                <span key={t} className={`text-[9px] px-2 py-0.5 rounded-full border font-mono ${threatColors[t] || "bg-white/10 text-white/60 border-white/20"}`}>
+                                  {t.replace(/_/g, " ")}
+                                </span>
+                              ))}
+                            </div>
+                            {(r.affectedAreas || []).length > 0 && (
+                              <p className="text-[8px] text-white/30 mt-1 font-mono">
+                                Areas: {r.affectedAreas.join(", ")}
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Row 4: AI description */}
+                        {r.description && (
+                          <div className="bg-black/30 p-2.5 rounded-lg">
+                            <p className="text-[8px] uppercase tracking-widest text-white/40 mb-1">AI Analysis</p>
+                            <p className="text-[10px] text-white/60 leading-relaxed font-mono line-clamp-4">
+                              {r.description}
+                            </p>
+                          </div>
+                        )}
+
                       </div>
-                      <div className="bg-black/20 p-2 rounded flex flex-col">
-                        <span className="text-[9px] uppercase tracking-widest opacity-60">AI Confidence</span>
-                        <span className="text-xs font-mono font-bold mt-0.5 uppercase">
-                          {scan.results?.vlConfidence || "N/A"}
-                        </span>
-                      </div>
-                    </div>
-                  )}
+                    );
+                  })()}
 
                   {scan.status === 'failed' && (
                     <div className="mt-2 flex items-center justify-between bg-black/20 p-2 rounded">

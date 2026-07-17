@@ -61,7 +61,9 @@ def analyze_zone(req: AnalyzeRequest):
     if not validate_image(image_data["rgb"]):
         raise HTTPException(400, "Invalid or empty satellite image")
 
-    result = analyze(rgb=image_data["rgb"], nir=image_data["nir"], job_id=job_id)
+    result = analyze(rgb=image_data["rgb"], nir=image_data["nir"],
+                     job_id=job_id, red_raw=image_data.get("red_raw"),
+                     scl=image_data.get("scl"))
 
     return AnalyzeResponse(
         job_id=job_id, zone_id=req.zone_id,
@@ -187,16 +189,22 @@ class HistoricalScanRequest(BaseModel):
 
 
 class HistoricalScanResult(BaseModel):
-    date:           str
-    status:         str          # "done" | "skipped"
-    skip_reason:    str
-    ndvi_mean:      float
-    forest_pct:     float
-    threats:        List[str]
-    severity:       str
-    image_path:     str
+    date:             str
+    status:           str          # "done" | "skipped"
+    skip_reason:      str
+    ndvi_mean:        float
+    forest_pct:       float
+    vegetation_pct:   float
+    water_pct:        float
+    bare_soil_pct:    float
+    cloud_pct:        float        # % pixels excluded by SCL cloud masking
+    threats:          List[str]
+    severity:         str
+    description:      str
+    image_path:       str
+    heatmap_path:     str
     delta_from_first: float      # % change from first scan
-    loss_hectares:  float
+    loss_hectares:    float
 
 
 class HistoricalAnalyzeResponse(BaseModel):
@@ -235,18 +243,24 @@ def historical_analyze(req: HistoricalScanRequest):
             "skip_reason":      "",
             "ndvi_mean":        0.0,
             "forest_pct":       0.0,
+            "vegetation_pct":   0.0,
+            "water_pct":        0.0,
+            "bare_soil_pct":    0.0,
             "threats":          ["none"],
             "severity":         "none",
+            "description":      "",
             "image_path":       "",
+            "heatmap_path":     "",
+            "cloud_pct":     0.0,
             "delta_from_first": 0.0,
             "loss_hectares":    0.0,
         }
 
         try:
-            # Date window: ±15 days around the target date for cloud-free mosaic
+            # Date window: ±30 days (wider = more cloud-free shots available)
             from datetime import datetime, timedelta
             target = datetime.strptime(date_str, "%Y-%m-%d")
-            date_from = (target - timedelta(days=15)).strftime("%Y-%m-%d")
+            date_from = (target - timedelta(days=30)).strftime("%Y-%m-%d")
             date_to   = target.strftime("%Y-%m-%d")
 
             image_data = fetch_image(
@@ -265,9 +279,11 @@ def historical_analyze(req: HistoricalScanRequest):
 
             job_id = f"hist-{req.zone_id[:8]}-{date_str}"
             result = analyze(
-                rgb    = image_data["rgb"],
-                nir    = image_data["nir"],
-                job_id = job_id,
+                rgb     = image_data["rgb"],
+                nir     = image_data["nir"],
+                job_id  = job_id,
+                red_raw = image_data.get("red_raw"),
+                scl     = image_data.get("scl"),
             )
 
             forest_pct = result["forest_percentage"]
@@ -277,17 +293,43 @@ def historical_analyze(req: HistoricalScanRequest):
             delta      = round((first_forest_pct or forest_pct) - forest_pct, 2)
             loss_ha    = calculate_loss_hectares(req.bbox, first_forest_pct or forest_pct, forest_pct)
 
+            cloud_pct = result.get("cloud_pct", 0.0)
+
+            # ── Auto-skip if extreme cloud cover (>80% pixels masked) ─────────
+            # Extreme cloud scenes se NDVI unreliable hoti hai — skip karo
+            MAX_CLOUD_PCT = 80.0
+            if cloud_pct > MAX_CLOUD_PCT:
+                scan_entry["skip_reason"] = (
+                    f"Extreme cloud cover — {cloud_pct:.0f}% pixels masked by SCL. "
+                    f"Try a different date or wider time window."
+                )
+                logger.warning(
+                    f"[Historical] {date_str} → AUTO-SKIPPED: {cloud_pct:.0f}% cloud cover "
+                    f"exceeds {MAX_CLOUD_PCT:.0f}% threshold"
+                )
+                results.append(scan_entry)
+                continue
+
             scan_entry.update({
                 "status":           "done",
                 "ndvi_mean":        result["ndvi_mean"],
                 "forest_pct":       forest_pct,
+                "vegetation_pct":   result["vegetation_percentage"],
+                "water_pct":        result["water_percentage"],
+                "bare_soil_pct":    result["bare_soil_percentage"],
                 "threats":          result["threats"],
                 "severity":         result["severity"],
-                "image_path":       result.get("heatmap_path", ""),
+                "description":      result.get("description", ""),
+                "image_path":       result.get("original_image_path", ""),
+                "heatmap_path":     result.get("heatmap_path", ""),
+                "cloud_pct":        cloud_pct,
                 "delta_from_first": delta,
                 "loss_hectares":    loss_ha,
             })
-            logger.info(f"[Historical] {date_str} -> forest={forest_pct}% | delta={delta}%")
+            logger.info(
+                f"[Historical] {date_str} → forest={forest_pct}% | "
+                f"cloud_masked={cloud_pct:.1f}% | delta={delta}%"
+            )
 
         except Exception as e:
             scan_entry["skip_reason"] = f"Fetch/analysis error: {str(e)[:80]}"

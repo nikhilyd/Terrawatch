@@ -23,7 +23,8 @@ import fieldRoutes    from './routes/field.routes';
 import userRoutes     from './routes/user.routes';
 import analyticsRoutes  from './routes/analytics.routes';
 import exportRoutes    from './routes/export.routes';
-import campaignRoutes  from './routes/campaign.routes';
+import campaignRoutes    from './routes/campaign.routes';
+import historicalRoutes  from './routes/historical.routes';
 import { initSocket } from './utils/socket';
 
 const app = express();
@@ -61,7 +62,8 @@ app.use('/api/public',    publicRoutes);
 app.use('/api/field',     fieldRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/export',    exportRoutes);
-app.use('/api/campaigns', campaignRoutes);
+app.use('/api/campaigns',  campaignRoutes);
+app.use('/api/historical', historicalRoutes);
 
 // ── 404 Handler ──────────────────────────────────────────────
 app.use((_req, res) => {
@@ -107,6 +109,9 @@ const start = async () => {
     console.log(`   GET  /api/campaigns/:id               -> Campaign detail + scans`);
     console.log(`   POST /api/campaigns/preview-dates     -> Calculate scan dates (no DB)`);
     console.log(`   POST /ml:8001/historical/analyze      -> Historical multi-date analysis`);
+    console.log(`   POST /api/historical                  -> Save historical analysis result`);
+    console.log(`   GET  /api/historical                  -> List saved analyses`);
+    console.log(`   GET  /api/historical/:id              -> Full analysis + images`);
     console.log();
   });
 };

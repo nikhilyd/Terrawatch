@@ -143,3 +143,89 @@ export const historicalService = {
     }
   },
 };
+
+// ── Historical Analysis Save Service (Node.js / MongoDB) ─────────────────────
+export interface SavedAnalysis {
+  _id:        string;
+  zoneId:     string;
+  zoneName:   string;
+  bbox:       number[];
+  dates:      string[];
+  resolution: number;
+  scans:      any[];
+  summary: {
+    total_loss_pct:    number;
+    total_loss_ha:     number;
+    rate_per_year:     number;
+    biggest_drop_pct:  number;
+    biggest_drop_date: string;
+    scans_done:        number;
+    scans_skipped:     number;
+  };
+  ai_verdict: string;
+  createdAt:  string;
+}
+
+export const historicalSaveService = {
+
+  // Save completed analysis to MongoDB
+  saveAnalysis: async (payload: {
+    zoneId:     string;
+    zoneName:   string;
+    bbox:       number[];
+    dates:      string[];
+    resolution: number;
+    scans:      any[];
+    summary:    any;
+    ai_verdict: string;
+  }): Promise<{ success: boolean; data?: SavedAnalysis; message?: string }> => {
+    try {
+      const res = await fetch(`${API_URL}/historical`, {
+        method:  "POST",
+        headers: getHeaders(),
+        body:    JSON.stringify(payload),
+      });
+      return await res.json();
+    } catch (error) {
+      console.error("saveAnalysis error:", error);
+      return { success: false, message: "Network error" };
+    }
+  },
+
+  // List all saved analyses (summary only)
+  getAnalyses: async (): Promise<{ success: boolean; data: SavedAnalysis[]; count: number }> => {
+    try {
+      const res = await fetch(`${API_URL}/historical`, { headers: getHeaders() });
+      return await res.json();
+    } catch (error) {
+      console.error("getAnalyses error:", error);
+      return { success: false, data: [], count: 0 };
+    }
+  },
+
+  // Full detail with all scans + image URLs
+  getAnalysis: async (id: string): Promise<{ success: boolean; data?: SavedAnalysis }> => {
+    try {
+      const res = await fetch(`${API_URL}/historical/${id}`, { headers: getHeaders() });
+      return await res.json();
+    } catch (error) {
+      console.error("getAnalysis error:", error);
+      return { success: false };
+    }
+  },
+
+  // Delete
+  deleteAnalysis: async (id: string): Promise<{ success: boolean; message?: string }> => {
+    try {
+      const res = await fetch(`${API_URL}/historical/${id}`, {
+        method:  "DELETE",
+        headers: getHeaders(),
+      });
+      return await res.json();
+    } catch (error) {
+      console.error("deleteAnalysis error:", error);
+      return { success: false };
+    }
+  },
+};
+

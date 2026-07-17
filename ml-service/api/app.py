@@ -17,6 +17,7 @@ import threading
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from api.routes import router
 from src.inference import vl_analyzer
@@ -94,6 +95,12 @@ app.add_middleware(
 )
 
 app.include_router(router, prefix="/api")
+
+# ── Static Images — ML-processed images frontend pe serve karo ───────────────
+import pathlib
+_processed_dir = pathlib.Path("data/processed")
+_processed_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/images", StaticFiles(directory=str(_processed_dir)), name="images")
 
 
 # ── Root ──────────────────────────────────────────────────────

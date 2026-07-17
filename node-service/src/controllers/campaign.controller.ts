@@ -160,6 +160,23 @@ export const createCampaign = async (req: AuthRequest, res: Response): Promise<v
     const areaKm2 = calculateAreaKm2(bbox);
     const dates = calculateScanDates(start, end, Math.min(count, 10));
 
+    // ── Future-dates validation (Monitoring mode) ───────────────────────────
+    // scan[0] = baseline (can be today or near-today)
+    // scan[1..n] must be strictly in the future
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    for (let i = 1; i < dates.length; i++) {
+      const d = new Date(dates[i]);
+      d.setHours(0, 0, 0, 0);
+      if (d <= today) {
+        res.status(400).json({
+          success: false,
+          message: `Scan ${i + 1} date (${dates[i].toISOString().split('T')[0]}) must be in the future. Monitoring campaigns only allow future scan dates.`,
+        });
+        return;
+      }
+    }
+
     // Build scan slot entries
     const scans = dates.map((date, idx) => ({
       scheduledDate: date,
@@ -198,7 +215,7 @@ export const createCampaign = async (req: AuthRequest, res: Response): Promise<v
 
     res.status(201).json({
       success: true,
-      message: 'Campaign created. First scan will run on scheduled date.',
+      message: `Campaign created! Baseline scan running now. ${dates.length - 1} future scan(s) scheduled.`,
       data: campaign,
     });
   } catch (err) {
