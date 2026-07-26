@@ -1,0 +1,75 @@
+"use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", { value: true });
+const mongoose_1 = __importStar(require("mongoose"));
+const AlertSchema = new mongoose_1.Schema({
+    zoneId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'Zone', required: true },
+    scanId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'Scan', required: false, default: null },
+    prevScanId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'Scan', default: null },
+    source: { type: String, enum: ['satellite', 'field_report'], default: 'satellite' },
+    fieldReportId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'FieldReport', default: null },
+    forestLoss: { type: Number, default: 0 },
+    bareSoilIncrease: { type: Number, default: 0 },
+    waterLoss: { type: Number, default: 0 },
+    severity: {
+        type: String,
+        enum: ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'],
+        default: 'MEDIUM',
+    },
+    status: {
+        type: String,
+        enum: ['OPEN', 'INVESTIGATING', 'RESOLVED', 'FALSE_ALARM'],
+        default: 'OPEN',
+    },
+    message: { type: String, required: true },
+    isRead: { type: Boolean, default: false },
+    emailSent: { type: Boolean, default: false },
+    // Ticketing / Case Management
+    resolutionNote: { type: String, default: '' },
+    resolvedBy: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User' },
+    resolvedAt: { type: Date },
+    // GPT-4o deep comparison — alert create hone ke baad update hota hai
+    changeType: { type: String, default: '' },
+    probableCause: { type: String, default: '' },
+    changedAreas: { type: [String], default: [] },
+    changeDescription: { type: String, default: '' },
+    comparisonImagePath: { type: String, default: '' },
+    hotspot: {
+        lat: { type: Number },
+        lng: { type: Number },
+    },
+}, { timestamps: true });
+exports.default = mongoose_1.default.model('Alert', AlertSchema);
+//# sourceMappingURL=Alert.js.map

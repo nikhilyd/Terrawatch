@@ -58,7 +58,7 @@ services:
 
   # ── Node.js API Service ───────────────────────────────────
   node-service:
-    build: ./node-service
+    build: ./backend
     container_name: ecowatch-node
     depends_on:
       kafka:
@@ -81,7 +81,6 @@ services:
       SMTP_USER:           ${SMTP_USER:-}
       SMTP_PASS:           ${SMTP_PASS:-}
       UPLOAD_DIR:          uploads/
-      ML_SERVICE_URL:      http://host.docker.internal:8001
     restart: on-failure
     networks: [ecowatch-net]
 
