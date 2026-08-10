@@ -303,7 +303,7 @@ export default function FieldOperationsPage() {
                     </Tooltip.Root>
                   </Tooltip.Provider>
                 </label>
-                <div className="flex gap-3">
+                <div className="flex flex-col sm:flex-row gap-3">
                   <div className={cn(
                     "flex-1 border rounded-xl px-4 py-3 flex items-center justify-between text-sm transition-all",
                     hasGps

@@ -204,12 +204,12 @@ function AuthForm() {
 // ─── Main Page ───────────────────────────────────────────────────────────────
 export default function AuthPage() {
   return (
-    <div className="min-h-screen fixed inset-0 flex items-center justify-center overflow-hidden">
+    <div className="min-h-screen relative flex flex-col items-center justify-center overflow-y-auto overflow-x-hidden py-8">
       {/* Extra overlay for auth page depth */}
       <div className="absolute inset-0 bg-[#030712]/60 pointer-events-none" />
 
       {/* Content */}
-      <div className="relative z-10 w-full flex flex-col items-center justify-center px-6 max-w-6xl mx-auto h-full">
+      <div className="relative z-10 w-full flex flex-col items-center justify-center px-4 md:px-6 max-w-6xl mx-auto h-full my-auto">
 
         {/* Header/Logo (Centered above the split) */}
         <motion.div

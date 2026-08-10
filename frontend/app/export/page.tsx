@@ -35,7 +35,7 @@ export default function DataExportCenter() {
       </div>
 
       {/* Main Content Overlay */}
-      <div className="relative z-10 container mx-auto px-6 pt-24 pb-20 flex flex-col min-h-screen">
+      <div className="relative z-10 container mx-auto px-4 md:px-6 pt-24 pb-20 flex flex-col min-h-screen">
         
         {/* Header */}
         <motion.div 

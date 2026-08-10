@@ -324,11 +324,11 @@ export default function MonitoringPage() {
   const completedCampaigns = campaigns.filter(c => c.status === "completed");
 
   return (
-    <div className="min-h-screen max-w-5xl mx-auto py-8 space-y-8">
+    <div className="min-h-screen max-w-5xl mx-auto py-8 px-4 space-y-8">
       <Toaster theme="dark" position="bottom-right" richColors />
 
       {/* ── Header ── */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-3 mb-1">
             <div className="p-2 rounded-xl bg-blue-500/10 border border-blue-500/20">
@@ -362,7 +362,7 @@ export default function MonitoringPage() {
               </h2>
 
               {/* Name + Zone */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-xs text-blue-400 font-semibold uppercase tracking-wider">Campaign Name *</label>
                   <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Amazon Watch 2026"
@@ -395,7 +395,7 @@ export default function MonitoringPage() {
               </div>
 
               {/* Scan Settings */}
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <label className="text-xs text-blue-400 font-semibold uppercase tracking-wider">Resolution</label>
                   <select value={resolution} onChange={e => setResolution(Number(e.target.value))}

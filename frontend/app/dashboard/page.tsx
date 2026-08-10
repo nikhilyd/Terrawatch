@@ -113,7 +113,7 @@ export default function DashboardPage() {
       <motion.div
         initial={{ opacity: 0, y: -12 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full h-11 mt-6 mb-3 glass rounded-2xl flex items-center justify-between px-4 z-20"
+        className="w-full h-auto min-h-[44px] py-2 sm:py-0 sm:h-11 mt-6 mb-3 glass rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between px-4 z-20 gap-2 sm:gap-0"
       >
         <div className="flex items-center gap-3">
           <div className="w-7 h-7 rounded-xl glass-blue flex items-center justify-center">
@@ -164,14 +164,14 @@ export default function DashboardPage() {
       </motion.div>
 
       {/* Main HUD Layout */}
-      <div className="flex-1 flex gap-3 overflow-hidden relative z-20 min-h-0">
+      <div className="flex-1 flex flex-col lg:flex-row gap-3 overflow-y-auto lg:overflow-hidden relative z-20 min-h-0">
 
         {/* Left: Analytics Panel */}
         <motion.div
           initial={{ x: -350, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
           transition={{ type: "spring", stiffness: 120, damping: 22 }}
-          className="h-full z-20 shrink-0"
+          className="h-auto lg:h-full z-20 shrink-0 w-full lg:w-auto"
         >
           <AnalyticsPanel analytics={analytics} alertsOverTime={alertsOverTime} riskScores={riskScores} />
         </motion.div>
@@ -188,7 +188,7 @@ export default function DashboardPage() {
           initial={{ x: 350, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
           transition={{ type: "spring", stiffness: 120, damping: 22, delay: 0.05 }}
-          className="h-full z-20 ml-auto shrink-0"
+          className="h-auto lg:h-full z-20 lg:ml-auto shrink-0 w-full lg:w-auto"
         >
           <AlertsFeed
             alerts={alerts}

@@ -307,7 +307,7 @@ function SavedAnalysisCard({
 
                   {scan.status === "done" && (
                     <div className="p-4 rounded-xl border border-white/5 bg-white/[0.02]">
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                         {[
                           { label: "Forest",     val: scan.forest_pct,     color: "text-blue-400" },
                           { label: "Vegetation", val: scan.vegetation_pct, color: "text-lime-400" },
@@ -473,11 +473,11 @@ export default function HistoricalPage() {
   };
 
   return (
-    <div className="min-h-screen max-w-5xl mx-auto py-8 space-y-8">
+    <div className="min-h-screen max-w-5xl mx-auto py-8 px-4 space-y-8">
       <Toaster theme="dark" position="bottom-right" richColors />
 
       {/* Header */}
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-xl bg-blue-500/10 border border-blue-500/20">
             <History className="w-5 h-5 text-blue-400" />
@@ -594,7 +594,7 @@ export default function HistoricalPage() {
                   <Database className="w-4 h-4" /> View in Past Analyses →
                 </button>
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
                   { label: "Total Forest Loss", value: `${result.summary.total_loss_pct.toFixed(1)}%`,      sub: `${result.summary.total_loss_ha.toFixed(0)} hectares`,         color: "text-red-400",    bg: "bg-red-500/5 border-red-500/20",       icon: <TrendingDown className="w-4 h-4 text-red-400" /> },
                   { label: "Annual Rate",        value: `${result.summary.rate_per_year.toFixed(0)} ha/yr`, sub: "Annualized loss",                                              color: "text-orange-400", bg: "bg-orange-500/5 border-orange-500/20", icon: <BarChart3 className="w-4 h-4 text-orange-400" /> },

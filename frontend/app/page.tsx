@@ -370,7 +370,7 @@ export default function Home() {
 
       {/* ════════════════════ STATS ════════════════════ */}
       <section className="max-w-6xl mx-auto px-4 pb-20 -mt-4 relative z-10">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
           <StatCard icon={TreePine} label="Protected Zones" value={stats.totalZones} color="text-blue-400" />
           <StatCard icon={Satellite} label="Scans Completed" value={stats.totalScans} color="text-cyan-400" />
           <StatCard icon={AlertTriangle} label="Alerts Generated" value={stats.totalAlerts} color="text-amber-400" />
@@ -440,7 +440,7 @@ export default function Home() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ delay: 0.35, duration: 0.65 }}
-          className="mt-4 glass-blue rounded-3xl p-10 flex flex-col md:flex-row items-center justify-between gap-8 relative overflow-hidden"
+          className="mt-4 glass-blue rounded-3xl p-6 md:p-10 flex flex-col md:flex-row items-center justify-between gap-8 relative overflow-hidden"
         >
           <div className="absolute -top-20 -left-20 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
           <div className="relative z-10">

@@ -113,7 +113,7 @@ export default function PublicTransparencyPortal() {
       </div>
 
       {/* Main Content Overlay */}
-      <div className="relative z-10 container mx-auto px-6 pt-32 pb-20">
+      <div className="relative z-10 container mx-auto px-4 md:px-6 pt-32 pb-20">
         
         {/* Header Titles */}
         <motion.div 

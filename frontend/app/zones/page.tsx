@@ -225,13 +225,13 @@ export default function MissionControlPage() {
 
       {/* Main Container with Mouse Parallax */}
       <ParallaxContainer>
-        <div className="flex-1 w-full h-full flex gap-4 overflow-hidden relative pointer-events-none">
+        <div className="flex-1 w-full h-full flex flex-col md:flex-row gap-4 overflow-hidden relative pointer-events-none">
           
           {/* Left Panel: Zone Registry */}
           <motion.div 
             initial={{ x: -400, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
-            className="w-[320px] h-full z-20 pointer-events-auto"
+            className="w-full md:w-[320px] h-[40%] md:h-full z-20 pointer-events-auto shrink-0"
           >
             <ZoneRegistryList 
               zones={zones} 
@@ -271,7 +271,7 @@ export default function MissionControlPage() {
                 initial={{ opacity: 0, x: 100 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 100 }}
-                className="absolute top-4 right-4 bottom-4 w-[350px] z-20 pointer-events-auto"
+                className="absolute inset-2 md:inset-auto md:top-4 md:right-4 md:bottom-4 md:w-[350px] z-20 pointer-events-auto"
               >
                 <ScanJobsPanel 
                   zone={selectedZone}

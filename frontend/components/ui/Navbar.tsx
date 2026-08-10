@@ -129,7 +129,7 @@ export function Navbar() {
         <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-blue-500/30 to-transparent" />
 
         {/* ── SECTION A: Brand ── */}
-        <div className="flex items-center pl-6 py-3 pr-4 shrink-0">
+        <div className="flex items-center pl-4 xl:pl-6 py-3 pr-2 xl:pr-4 shrink-0">
           <Link href="/" className="flex items-center gap-3 group">
             <HoloLogo />
             <div className="flex flex-col leading-tight">
@@ -156,7 +156,7 @@ export function Navbar() {
                 key={link.id}
                 href={link.href}
                 className={cn(
-                  "group relative flex items-center h-full gap-2 px-4 py-4 text-[11px] font-bold uppercase tracking-wider transition-colors duration-200 select-none",
+                  "group relative flex items-center h-full gap-1.5 xl:gap-2 px-2 xl:px-4 py-4 text-[10px] xl:text-[11px] font-bold uppercase tracking-wider transition-colors duration-200 select-none",
                   active
                     ? "text-blue-500"
                     : "text-zinc-400 hover:text-zinc-200"
@@ -195,7 +195,7 @@ export function Navbar() {
         <div className="hidden lg:block w-px h-8 bg-white/10 shrink-0 mx-2" />
 
         {/* ── SECTION C: Right Controls ── */}
-        <div className="flex items-center gap-4 pr-4 py-3 shrink-0">
+        <div className="flex items-center gap-2 xl:gap-4 pr-2 xl:pr-4 py-3 shrink-0">
 
           {/* ML Status */}
           {isAuthenticated && mlOnline !== null && (

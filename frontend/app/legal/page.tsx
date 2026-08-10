@@ -124,7 +124,7 @@ export default function LegalDashboard() {
   );
 
   return (
-    <div className="relative min-h-screen bg-black pt-20 px-6 pb-6 overflow-hidden flex flex-col">
+    <div className="relative min-h-screen bg-black pt-20 px-4 md:px-6 pb-6 overflow-hidden flex flex-col">
       <LegalBackground />
 
       {/* Header */}
@@ -140,10 +140,10 @@ export default function LegalDashboard() {
         </div>
       </div>
 
-      <div className="flex-1 flex gap-6 h-[calc(100vh-140px)] relative z-10">
+      <div className="flex-1 flex flex-col lg:flex-row gap-6 h-auto lg:h-[calc(100vh-140px)] overflow-y-auto lg:overflow-hidden relative z-10">
 
         {/* ── LEFT: Global Risk Leaderboard ────────────────────────────────── */}
-        <div className="w-[40%] flex flex-col bg-[#0a0a0a] rounded-2xl border border-white/10 overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.5)]">
+        <div className="w-full lg:w-[40%] shrink-0 h-[400px] lg:h-auto flex flex-col bg-[#0a0a0a] rounded-2xl border border-white/10 overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.5)]">
           <div className="p-4 border-b border-white/5 bg-white/[0.02] flex items-center justify-between">
             <h2 className="text-sm font-mono tracking-widest text-white uppercase flex items-center gap-2">
               <Activity size={16} className="text-red-500" />
@@ -223,7 +223,7 @@ export default function LegalDashboard() {
         </div>
 
         {/* ── RIGHT: Impact Details & Legal Action ─────────────────────────── */}
-        <div className="w-[60%] bg-[#0a0a0a] rounded-2xl border border-white/10 overflow-hidden flex flex-col">
+        <div className="w-full lg:w-[60%] flex-1 lg:flex-none min-h-[600px] lg:min-h-0 bg-[#0a0a0a] rounded-2xl border border-white/10 overflow-hidden flex flex-col">
           <AnimatePresence mode="wait">
             {!selectedZoneId ? (
               <motion.div key="empty"
@@ -281,7 +281,7 @@ export default function LegalDashboard() {
                 </div>
 
                 {/* ── NDVI + Scan Stats ────────────────────────────────────── */}
-                <div className="grid grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <MetricCard label="NDVI Loss"     value={`${zoneRisk.breakdown.ndviLoss}%`}
                     sub="vs baseline" icon={TrendingDown} color="text-red-400" />
                   <MetricCard label="Forest Cover"  value={`${zoneRisk.breakdown.forestPct.toFixed(1)}%`}
@@ -347,7 +347,7 @@ export default function LegalDashboard() {
                         )}
                       </div>
 
-                      <div className="grid grid-cols-2 gap-6 relative z-10">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
                         <div className="flex flex-col gap-4">
                           <div>
                             <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-widest">Est. CO₂ Released</span>
@@ -374,7 +374,7 @@ export default function LegalDashboard() {
                           </div>
                         </div>
 
-                        <div className="flex flex-col justify-center border-l border-white/10 pl-6">
+                        <div className="flex flex-col justify-center border-t md:border-t-0 md:border-l border-white/10 pt-6 md:pt-0 pl-0 md:pl-6 mt-4 md:mt-0">
                           <div className="flex items-center justify-between mb-2">
                             <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-widest">Economic Damage</span>
                             <button

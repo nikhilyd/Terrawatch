@@ -105,7 +105,7 @@ export default function AdminPortal() {
   }
 
   return (
-    <div className="min-h-screen bg-[#020617] text-white pt-24 px-6 pb-20 overflow-hidden relative selection:bg-cyan-500/30">
+    <div className="min-h-screen bg-[#020617] text-white pt-24 px-4 md:px-6 pb-20 overflow-hidden relative selection:bg-cyan-500/30">
       <Toaster position="top-right" theme="dark" />
       
       {/* Background Glow */}
